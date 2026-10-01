@@ -1,0 +1,49 @@
+# Собирает DotaSkinChanger.exe на бесплатном Windows-сервере GitHub.
+# Положите этот файл в репозиторий по пути .github/workflows/build.yml.
+# Запуск: вкладка Actions → "Build EXE" → Run workflow (или любой push в main).
+# Готовый exe: страница запуска → раздел Artifacts → DotaSkinChanger.
+# При push тега вида v1.0.0 exe автоматически прикрепляется к GitHub Release.
+
+name: Build EXE
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt pyinstaller
+
+      - name: Build
+        shell: pwsh
+        run: |
+          $icon = @()
+          if (Test-Path app.ico) { $icon = @("--icon", "app.ico") }
+          pyinstaller --noconfirm --clean --onefile --windowed --name DotaSkinChanger --collect-data customtkinter @icon main.py
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: DotaSkinChanger
+          path: dist/DotaSkinChanger.exe
+
+      - name: Attach to release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/DotaSkinChanger.exe
